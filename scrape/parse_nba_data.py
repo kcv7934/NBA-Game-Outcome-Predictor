@@ -1,3 +1,24 @@
+"""
+parse_nba_games.py
+
+This script parses downloaded NBA box score HTML files (from Basketball-Reference)
+and converts them into a structured dataset for analysis.
+
+Workflow:
+1. Load all saved box score HTML files from SCORES_DIR.
+2. Parse each file with BeautifulSoup.
+3. Extract team statistics (basic + advanced), totals, and max player values.
+4. Combine both teams into a single game-level record.
+5. Add metadata such as season, date, home/away flag, and win indicator.
+6. Save the final dataset as data/nba_games.csv.
+
+Expected output shape is validated against EXPECTED_COLS. Files that do not
+match are skipped.
+
+NOTE: EXPECTED_COLS may vary depending on first season extracted. Recommended to take first
+box score of game saved to data/scores and use the column count of that as EXPECTED_COLS
+"""
+
 import os
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -6,9 +27,19 @@ from tqdm import tqdm
 
 from read_nba_seasons import SCORES_DIR
 
+# Expected number of columns per parsed game record
 EXPECTED_COLS = 153
 
+
 def get_box_scores():
+    """
+    Return a list of full file paths to all saved box score HTML files.
+
+    Returns
+    -------
+    list of str
+        Paths to *.html files inside SCORES_DIR.
+    """
     return [
         os.path.join(SCORES_DIR, f)
         for f in os.listdir(SCORES_DIR)
@@ -17,16 +48,45 @@ def get_box_scores():
 
 
 def parse_html(box_score):
+    """
+    Load and parse a box score HTML file into a BeautifulSoup object.
+
+    Parameters
+    ----------
+    box_score : str
+        Full path to a box score HTML file.
+
+    Returns
+    -------
+    BeautifulSoup
+        Parsed HTML with header rows removed for easier table parsing.
+    """
     with open(box_score, encoding="utf-8", errors="replace") as f:
         html = f.read()
 
     soup = BeautifulSoup(html, "html.parser")
+
+    # Remove duplicate header rows that break pandas
     [s.decompose() for s in soup.select("tr.over_header")]
     [s.decompose() for s in soup.select("tr.thead")]
+
     return soup
 
 
 def read_line_score(soup):
+    """
+    Read the game line score table containing team names and totals.
+
+    Parameters
+    ----------
+    soup : BeautifulSoup
+
+    Returns
+    -------
+    pandas.DataFrame with columns:
+        team  - team name string
+        total - total points scored
+    """
     line_score = pd.read_html(
         StringIO(str(soup)),
         attrs={"id": "line_score"}
@@ -41,6 +101,21 @@ def read_line_score(soup):
 
 
 def read_stats(soup, team, stat):
+    """
+    Read either 'basic' or 'advanced' box score tables for a team.
+
+    Parameters
+    ----------
+    soup : BeautifulSoup
+    team : str
+    stat : str
+        Either 'basic' or 'advanced'
+
+    Returns
+    -------
+    pandas.DataFrame
+        Numeric player statistics table.
+    """
     df = pd.read_html(
         StringIO(str(soup)),
         attrs={"id": f"box-{team}-game-{stat}"},
@@ -51,18 +126,47 @@ def read_stats(soup, team, stat):
 
 
 def read_season_info(soup):
+    """
+    Extract the NBA season year from navigation links.
+
+    Parameters
+    ----------
+    soup : BeautifulSoup
+
+    Returns
+    -------
+    str
+        Season end year (e.g., '2024')
+    """
     nav = soup.select("#bottom_nav_container")[0]
     hrefs = [a["href"] for a in nav.find_all("a")]
     return os.path.basename(hrefs[1]).split("_")[0]
 
 
 def build_team_summary(soup, team, base_cols):
+    """
+    Build a summary vector of totals and max player stats for one team.
+
+    Parameters
+    ----------
+    soup : BeautifulSoup
+    team : str
+    base_cols : list or None
+        Column order to enforce across games. Determined on first game.
+
+    Returns
+    -------
+    (pandas.Series, list)
+        Summary stats and final ordered column list.
+    """
     basic = read_stats(soup, team, "basic")
     advanced = read_stats(soup, team, "advanced")
 
+    # Team totals = last row
     totals = pd.concat([basic.iloc[-1, :], advanced.iloc[-1, :]])
     totals.index = totals.index.str.lower()
 
+    # Max player stats = max over player rows
     maxes = pd.concat([
         basic.iloc[:-1, :].max(),
         advanced.iloc[:-1, :].max()
@@ -71,6 +175,7 @@ def build_team_summary(soup, team, base_cols):
 
     summary = pd.concat([totals, maxes])
 
+    # Build baseline column list on first run
     if base_cols is None:
         base_cols = list(summary.index.drop_duplicates(keep="first"))
         base_cols = [c for c in base_cols if "bpm" not in c]
@@ -79,6 +184,22 @@ def build_team_summary(soup, team, base_cols):
 
 
 def build_game(soup, box_score, base_cols):
+    """
+    Build a complete game record combining both teams.
+
+    Parameters
+    ----------
+    soup : BeautifulSoup
+    box_score : str
+        Source filename (used to infer date)
+    base_cols : list or None
+
+    Returns
+    -------
+    (pandas.DataFrame or None, list)
+        Full game record (2 rows, one per team) or None on failure,
+        along with the maintained column list.
+    """
     line_score = read_line_score(soup)
     teams = list(line_score["team"])
 
@@ -112,6 +233,14 @@ def build_game(soup, box_score, base_cols):
 
 
 def main():
+    """
+    Main entry point for parsing all saved NBA box scores.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Combined dataset of all parsed games.
+    """
     box_scores = get_box_scores()
     games = []
     base_cols = None
