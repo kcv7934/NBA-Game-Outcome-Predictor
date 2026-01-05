@@ -1,4 +1,5 @@
 __pycache__/
 *.pyc
 *.pyo
-scrape/data/
+scrape/data/scores
+scrape/data/standings
