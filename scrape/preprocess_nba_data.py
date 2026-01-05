@@ -1,6 +1,6 @@
 import pandas as pd
 
-NBA_GAMES_PATH = "nba_games.csv"
+NBA_GAMES_PATH = "data/nba_games.csv"
 
 def load_data():
 

@@ -124,7 +124,7 @@ def main():
         games.append(game)
 
     games_df = pd.concat(games, ignore_index=True)
-    games_df.to_csv("nba_games.csv", index=False)
+    games_df.to_csv("data/nba_games.csv", index=False)
 
     return games_df
 

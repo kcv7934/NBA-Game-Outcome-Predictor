@@ -149,7 +149,10 @@ if __name__ == "__main__":
     # Feature selection
     selected_predictors = select_features(rolling_df, rolling_predictors)
 
-    joblib.dump(selected_predictors, "selected_predictors_ridge.pkl")
+    # --- Save predictors and model to models folder ---
+    models_folder = root / "models"
+
+    joblib.dump(selected_predictors, models_folder / "selected_predictors_ridge.pkl")
 
     # Backtest model
     model = RidgeClassifier(alpha=1)
@@ -169,5 +172,5 @@ if __name__ == "__main__":
     print(f"Final Model In-Sample Accuracy: {final_acc:.4f}")
 
     # Save final model
-    joblib.dump(final_model, "ridge_classifier_final.pkl")
-    print("Final model saved as 'ridge_classifier_final.pkl'")
+    joblib.dump(final_model, models_folder / "ridge_classifier_final.pkl")
+    print(f"Final model saved as '{models_folder}'")

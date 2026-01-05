@@ -73,7 +73,7 @@ def compute_rolling_features(df: pd.DataFrame, predictors, window: int = 10):
 
     full.to_csv(ROLLING_CSV_PATH, index=False)
 
-    print(f"Saved rolling_df as {ROLLING_CSV_PATH}")
+    print(f"Saved rolling_df to 'data/rolling_df.csv'")
 
     return full, rolling_removed_columns
 

@@ -102,13 +102,16 @@ if __name__ == "__main__":
     # Feature selection
     selected_predictors = select_features(rolling_df, rolling_predictors)
 
-    joblib.dump(selected_predictors, "selected_predictors_logistic.pkl")
+    # --- Save predictors and model to models folder ---
+    models_folder = root / "models"
+
+    joblib.dump(selected_predictors, models_folder / "selected_predictors_logistic.pkl")
 
 
     # Train final model
     model = train_final_model(rolling_df, selected_predictors)
 
     # Save model
-    joblib.dump(model, "logistic_model_final.pkl")
-    print("Saved model as 'logistic_model_final.pkl'")
+    joblib.dump(model, models_folder / "logistic_model_final.pkl")
+    print(f"Saved model as '{models_folder}'")
 
