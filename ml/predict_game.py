@@ -51,7 +51,7 @@ result = predict_game_ensemble_weighted(
     logistic_predictors=logistic_predictors,
     home_team=home_team,
     away_team=away_team,
-    ridge_weight=0.02
+    ridge_weight=0.00
 )
 
 # --- Display results ---
