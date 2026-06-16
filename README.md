@@ -1,12 +1,12 @@
 # NBA Game Predictor
 
-This project predicts NBA game outcomes using historical game data and rolling team statistics. The prediction pipeline combines **RidgeClassifier** (for winner prediction) and **Logistic Regression** (for home win probability) in a weighted ensemble.
+This project predicts NBA game outcomes using historical game data and rolling team statistics. The prediction pipeline uses machine learning models trained on six NBA seasons (2020–2026), with model performance evaluated through walk-forward season backtesting. The best-performing model achieved **62.85% backtest accuracy** on historical NBA game outcomes.
 
 ---
 
 ## Project Structure
 
-```
+```text
 .
 ├── scrape/
 │   ├── fetch_nba_seasons.py      # Downloads season schedule HTML files
@@ -27,68 +27,85 @@ This project predicts NBA game outcomes using historical game data and rolling t
 │   │   ├── selected_predictors_logistic.pkl
 │   │   └── selected_predictors_ridge.pkl
 │   ├── predictor/
-│   │   └── ensemble_predictor.py # Weighted ensemble prediction function
+│   │   └── ensemble_predictor.py # Prediction utilities
 │   ├── train/
-│   │   ├── train_nba_model_log_reg.py  # Logistic regression training
-│   │   └── train_nba_model_ridge.py    # Ridge classifier training
+│   │   ├── train_nba_model_log_reg.py
+│   │   └── train_nba_model_ridge.py
 │   ├── test/
-│   │   ├── test_log_reg.py       # Test script for Logistic Regression
-│   │   └── test_ridge.py         # Test script for Ridge Classifier
-│   └── predict_game.py           # User-facing script to predict a single game
+│   │   ├── test_log_reg.py
+│   │   ├── test_ridge.py
+│   │   └── test_ensemble.py
+│   └── predict_game.py
 ```
 
 ---
 
 ## Data Scraping (Important Notes)
 
-The repository includes scripts to scrape NBA game data from **Basketball-Reference**, but please note:
+The repository includes scripts to scrape NBA game data from Basketball Reference, but please note:
 
-* **`fetch_nba_seasons.py`**
-  Downloads all season schedules and standings HTML files.
+### fetch_nba_seasons.py
 
-  * **Time:** Can take **a couple of hours** depending on the number of seasons.
-  * Extracts HTML for **all games from the 2020 season to the most recent season (2026)**.
+Downloads all season schedules and standings HTML files.
 
-* **`read_nba_seasons.py`**
-  Downloads **individual box score pages** for every game in the saved HTML standings files.
+* Can take several hours depending on the number of seasons.
+* Extracts HTML for all games from the 2020 season through the most recent season.
 
-  * **Time:** Can take **almost a full day** because it processes all games month by month and season by season.
+### read_nba_seasons.py
 
-* **`parse_nba_data.py`**
-  Converts all saved box score HTML files into a structured CSV (`nba_games.csv`) for model training.
+Downloads individual box score pages for every game found in the saved schedule files.
 
-> **Important:** These scraping scripts are **not meant to be run** in this repository.
-> All models have already been trained, and the HTML files are **not included** due to size constraints.
+* Can take close to a full day because it processes every game across multiple seasons.
 
-**Data Range Used for Model Training:**
+### parse_nba_data.py
 
-* All models are trained on games from the **start of the 2020 NBA season up to 01/02/2026**.
-* To update the dataset beyond this, you would need to run the scraping pipeline (`fetch_nba_seasons.py` → `read_nba_seasons.py` → `parse_nba_data.py`), which takes several hours to a full day.
-* The included `rolling_df.csv` and trained models reflect **only the data from the beginning of the 2020 season up to 01/02/2026**.
+Converts downloaded box score HTML files into a structured CSV dataset used for model training.
 
-> The scraping scripts are included to show methodology and reproducibility, but **running them is optional and not required to use the prediction models**.
+> Important: These scraping scripts are included for reproducibility and methodology purposes. The raw HTML files are not included in the repository due to size constraints.
+
+### Data Range Used
+
+* Models were trained using NBA games from the start of the 2020 season through January 2, 2026.
+* Updating the dataset requires rerunning the scraping pipeline.
+* Included trained models and rolling features reflect only data available through January 2, 2026.
 
 ---
 
 ## Machine Learning Pipeline
 
-1. **Data Preparation**
+### 1. Data Preparation
 
-   * Load the parsed `nba_games.csv`.
-   * Compute rolling statistics for each team using `rolling_features.py`.
-   * Align rolling stats to the next game for matchup modeling.
+* Load and clean parsed NBA game data.
+* Compute rolling team statistics using a 10-game window.
+* Align rolling statistics with future matchups to prevent information leakage.
+* Generate matchup-level features for model training.
 
-2. **Model Training**
+### 2. Model Training
 
-   * **Ridge Classifier:** Predicts winner (home vs away).
-   * **Logistic Regression:** Predicts home win probability.
-   * Sequential Feature Selection is used to select top predictive features.
-   * Trained models are saved in `ml/models/`.
+#### Logistic Regression
 
-3. **Prediction**
+* Predicts home-team win probability.
+* Uses MinMax scaling and Sequential Feature Selection.
+* Achieved **62.85% walk-forward backtest accuracy** on historical NBA game outcomes.
 
-   * Use `predict_game.py` for user-friendly predictions.
-   * Ensemble combines Ridge (winner) + Logistic (probability) predictions.
+#### Ridge Classifier
+
+* Predicts game winners directly.
+* Uses the same rolling feature pipeline and feature selection process.
+* Achieved **61.91% walk-forward backtest accuracy** on historical NBA game outcomes.
+
+### 3. Model Evaluation
+
+* Walk-forward season backtesting is used to simulate real-world forecasting.
+* Models are trained on prior seasons and evaluated on future seasons.
+* This approach provides a more realistic measure of predictive performance than standard train/test splits.
+
+### 4. Prediction
+
+* `predict_game.py` provides user-facing predictions.
+* Logistic Regression generates win probabilities.
+* Ridge Classification provides winner predictions.
+* Ensemble experimentation is included for research purposes.
 
 ---
 
@@ -96,15 +113,13 @@ The repository includes scripts to scrape NBA game data from **Basketball-Refere
 
 ### Predict a Single Game
 
-Run the `predict_game.py` script with home and away team abbreviations:
-
 ```bash
 python ml/predict_game.py LAL BOS
 ```
 
 Example output:
 
-```
+```text
 Home team: LAL
 Away team: BOS
 Winner: BOS
@@ -113,25 +128,23 @@ Home win probability: 45.23%
 Away win probability: 54.77%
 ```
 
-### Using Models in Python
+---
 
-You can also use the ensemble predictor directly:
+## Using Models in Python
 
 ```python
 import pandas as pd
 import joblib
 from ml.predictor.ensemble_predictor import predict_game_ensemble_weighted
 
-# Load rolling data
 rolling_df = pd.read_csv("ml/data/rolling_df.csv")
 
-# Load models and predictor columns
 ridge_model = joblib.load("ml/models/ridge_classifier_final.pkl")
 ridge_predictors = joblib.load("ml/models/selected_predictors_ridge.pkl")
+
 logistic_model = joblib.load("ml/models/logistic_model_final.pkl")
 logistic_predictors = joblib.load("ml/models/selected_predictors_logistic.pkl")
 
-# Predict a game
 result = predict_game_ensemble_weighted(
     rolling_df,
     ridge_model,
@@ -147,8 +160,20 @@ print(result)
 
 ---
 
+## Results
+
+| Model               | Walk-Forward Backtest Accuracy |
+| ------------------- | ------------------------------ |
+| Logistic Regression | 62.85%                         |
+| Ridge Classifier    | 61.91%                         |
+
+The Logistic Regression model produced the strongest historical performance and serves as the primary benchmark for prediction quality.
+
+---
+
 ## Notes
 
-* Rolling features are computed over a **10-game window by default**.
-* Models were trained on **historical data from 2020–2026 only**. Predictions outside this range may be unreliable.
-* Scraping scripts demonstrate the methodology, but **running them is not necessary** for predictions.
+* Rolling features are computed using a 10-game window by default.
+* Models are trained only on historical data from 2020–2026.
+* Predictions outside the training period may be less reliable.
+* Scraping scripts are included to document methodology and reproducibility but are not required to use the trained models.
