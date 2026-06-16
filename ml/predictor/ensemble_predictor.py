@@ -103,3 +103,70 @@ def predict_game_ensemble_weighted(
         "home_win_prob": home_win_prob,
         "away_win_prob": 1 - home_win_prob,
     }
+
+def predict_row_ensemble(
+    row,
+    ridge_model,
+    ridge_predictors,
+    logistic_model,
+    logistic_predictors,
+    ridge_weight=0.02
+):
+    X_ridge = pd.DataFrame([row[ridge_predictors].values], columns=ridge_predictors)
+    ridge_pred = ridge_model.predict(X_ridge)[0]
+
+    X_log = pd.DataFrame([row[logistic_predictors].values], columns=logistic_predictors)
+    home_prob = logistic_model.predict_proba(X_log)[0][1]
+
+    if ridge_pred == 1:
+        home_prob += ridge_weight
+    else:
+        home_prob -= ridge_weight
+
+    home_prob = min(max(home_prob, 0), 1)
+
+    return 1 if home_prob >= 0.5 else 0
+
+
+def backtest_ensemble(
+    rolling_df,
+    ridge_predictors,
+    logistic_predictors,
+    ridge_weight=0.02
+):
+    from sklearn.linear_model import RidgeClassifier, LogisticRegression
+    from sklearn.metrics import accuracy_score
+
+    all_actual = []
+    all_preds = []
+
+    seasons = sorted(rolling_df["season"].unique())
+
+    for season in seasons[2:]:
+        train = rolling_df[rolling_df["season"] < season]
+        test = rolling_df[rolling_df["season"] == season]
+
+        ridge_model = RidgeClassifier(alpha=1)
+        ridge_model.fit(train[ridge_predictors], train["target"])
+
+        logistic_model = LogisticRegression(max_iter=1000)
+        logistic_model.fit(train[logistic_predictors], train["target"])
+
+        for _, row in test.iterrows():
+            if row["target"] == 2:
+                continue
+
+            pred = predict_row_ensemble(
+                row,
+                ridge_model,
+                ridge_predictors,
+                logistic_model,
+                logistic_predictors,
+                ridge_weight=ridge_weight
+            )
+
+            all_preds.append(pred)
+            all_actual.append(row["target"])
+
+    acc = accuracy_score(all_actual, all_preds)
+    return acc

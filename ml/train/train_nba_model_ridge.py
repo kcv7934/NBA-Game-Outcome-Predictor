@@ -31,10 +31,11 @@ from sklearn.metrics import accuracy_score
 import sys
 from pathlib import Path
 
-root = Path(__file__).resolve().parent.parent
+root = Path(__file__).resolve().parents[2]
 sys.path.append(str(root))
 
-from features.rolling_features import compute_rolling_features
+from ml.features.rolling_features import compute_rolling_features
+import scrape.preprocess_nba_data as preprocess
 import joblib
 
 
@@ -239,7 +240,6 @@ def predict_game_winner(rolling_df, selected_predictors, model,
 
 
 if __name__ == "__main__":
-    import scrape.preprocess_nba_data as preprocess
 
     # Load cleaned dataset
     df = preprocess.load_data()
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     selected_predictors = select_features(rolling_df, rolling_predictors)
 
     # Save selected predictors
-    models_folder = root / "models"
+    models_folder = root / "ml" / "models"
     joblib.dump(selected_predictors, models_folder / "selected_predictors_ridge.pkl")
 
     # Backtest model performance

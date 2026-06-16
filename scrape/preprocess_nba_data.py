@@ -18,9 +18,11 @@ The resulting dataset is suitable for machine learning workflows.
 """
 
 import pandas as pd
+from pathlib import Path
 
 # Path to the parsed NBA games dataset
-NBA_GAMES_PATH = "data/nba_games.csv"
+ROOT = Path(__file__).resolve().parent.parent
+NBA_GAMES_PATH = ROOT / "scrape" / "data" / "nba_games.csv"
 
 
 def load_data():

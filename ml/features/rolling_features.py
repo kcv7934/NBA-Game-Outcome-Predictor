@@ -1,6 +1,10 @@
 import pandas as pd
 
-ROLLING_CSV_PATH = "../data/rolling_df.csv"
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+ROLLING_CSV_PATH = ROOT / "data" / "rolling_df.csv"
 
 def compute_rolling_features(df: pd.DataFrame, predictors, window: int = 10):
     """
